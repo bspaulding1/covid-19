@@ -7,12 +7,18 @@ import plotly.express as px
 from io import StringIO
 import datetime
 import os
+import ffmpy
 
 
 data_file = 'data.csv'
 per_capita_unit = 1000000
 start_date = '2020-03-01'
 upper_end = .90
+width = 3840
+height = 1700
+crossfade = 3
+metric = 'cases_pc'
+slide_time = 2
 
 
 def print_datetime():
@@ -98,7 +104,7 @@ def gen_image(date, dimension, new_df):
 	    show_state_data=False,
 	    county_outline={'color': 'rgb(255, 255, 255)', 'width': 0.5},
 	    show_hover=True, centroid_marker={'opacity': 0},
-	    asp=2.9, width=3840, height=1700
+	    asp=2.9, width=width, height=height
 	)
 
 	fig.update_layout(dict(
@@ -116,10 +122,90 @@ def gen_all_images(dimension, new_df):
 		gen_image(date, dimension, new_df)
 
 
+def gen_indiv_video(date, dimension):
+	# https://ffmpy.readthedocs.io/en/latest/examples.html#complex-command-lines
+	ff = ffmpy.FFmpeg(
+		inputs={'images/cases_pc_2020-04-05.png': 
+			['-loop', '1']
+		},
+		outputs={'output.mp4': 
+			['-c:v', 'libx264', '-t', '1', '-r', '30', '-pix_fmt', 'yuv420p', '-vf', 'scale=%s:%s' % (width, height)]
+		}
+	)
+	print(ff.cmd)
+	ff.run()
+
+# 
+def gen_crossfade_frames(file_1, file_2, dimension, start_num, time):
+	ff = ffmpy.FFmpeg(
+		inputs={
+			file_1: 
+			['-loop', '1'],
+			file_2: 
+			['-loop', '1']
+		},
+		outputs={
+			'frames/frame_%05d.png': 
+			['-start_number', str(start_num), '-filter_complex', '[1:v][0:v]blend=all_expr=\'A*(if(gte(T,{crossfade}),1,T/{crossfade}))+B*(1-(if(gte(T,{crossfade}),1,T/{crossfade})))\''.format(crossfade=crossfade), '-t', str(time)]
+		}
+	)
+	print(ff.cmd)
+	ff.run()
+
+
+def gen_all_crossfade_frames(images, dimension):
+	prev_image = None
+	images_len = len(images)
+	for idx, image in enumerate(images):
+		file_start = ((idx - 1) * 25 * slide_time) + 1
+		if idx == 0:
+			prev_image = image
+			continue
+
+		gen_crossfade_frames(prev_image, image, dimension, file_start, slide_time)
+
+		prev_image = image
+
+
+def convert_frames_to_video(directory, dimension):
+	# ffmpeg -i frames/frames_%04d.png -c:v libx264 -pix_fmt yuv420p output.mp4
+	ff = ffmpy.FFmpeg(
+		inputs={
+			'frames/frame_%05d.png': 
+			None
+		},
+		outputs={
+			'%s/%s.mp4' % (directory, dimension): 
+			['-c:v', 'libx264', '-pix_fmt', 'yuv420p']
+		}
+	)
+	print(ff.cmd)
+	ff.run()
+
+
+def get_images_list(dimension):
+	result = []
+	for file in os.listdir('images'):
+		if file.startswith(dimension):
+			result.append(os.path.join('images', file))
+	result.sort()
+	return result
+
+
 def main():
-	new_df = gen_data()
+	# new_df = gen_data()
 	# gen_image('2020-04-05', 'cases_pc', new_df)
-	gen_all_images('cases_pc', new_df)
+	# gen_all_images('cases_pc', new_df)
+	# gen_crossfade_frames('2020-03-01', '2020-03-15', 'cases_pc', 1, 2)
+	# gen_crossfade_frames('2020-03-15', '2020-03-30', 'cases_pc', 51, 2)
+	images = get_images_list(metric)
+	# gen_all_crossfade_frames(images, metric)
+	convert_frames_to_video('videos', metric)
+	# TODO: metric-based naming convention for frames (refactor all methods)
+	# TODO: delete frames after video produced?
+	# TODO: configuration
+	# TODO: log file
+	# TODO: exception handling
 
 
 if __name__ == '__main__':

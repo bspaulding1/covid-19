@@ -2,3 +2,7 @@
 data.csv
 images/*
 !images/empty
+frames/*
+!frames/empty
+videos/*
+!videos/empty

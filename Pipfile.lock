@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "6e795ffb47a5df51c4db48b71cb07d447c7ad022a8e25312a7cce675464a7d87"
+            "sha256": "163c0c5aa6d2278c7c1e77effef26f38826ae4a6709859727aea2cfcba515751"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -74,6 +74,21 @@
             ],
             "version": "==1.1.0"
         },
+        "ffmpeg-python": {
+            "hashes": [
+                "sha256:65225db34627c578ef0e11c8b1eb528bb35e024752f6f10b78c011f6f64c4127",
+                "sha256:ac441a0404e053f8b6a1113a77c0f452f1cfc62f6344a769475ffdc0f56c23c5"
+            ],
+            "index": "pypi",
+            "version": "==0.2.0"
+        },
+        "ffmpy": {
+            "hashes": [
+                "sha256:65abdddfa2561bb86b6c9ecfced53c7a15ea5080db4ddad08da7de5a348929f1"
+            ],
+            "index": "pypi",
+            "version": "==0.2.2"
+        },
         "fiona": {
             "hashes": [
                 "sha256:1a432bf9fd56f089256c010da009c90d4a795c531a848132c965052185336600",
@@ -89,6 +104,12 @@
                 "sha256:c6e99bf596c2322e134833490611a612a8cce35a39c4c6499b7df919e24b482b"
             ],
             "version": "==1.8.13.post1"
+        },
+        "future": {
+            "hashes": [
+                "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"
+            ],
+            "version": "==0.18.2"
         },
         "geopandas": {
             "hashes": [
