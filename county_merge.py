@@ -214,6 +214,7 @@ def main():
 	# TODO: copy/paste image contents https://kite.com/python/examples/3039/pil-copy-a-region-of-an-image-to-another-area
 	# TODO: should be able to get x/y from Gimp
 	# TODO: try *not* filling in with white - rather, using black background
+	# TODO: deepen the color range https://stackoverflow.com/questions/44918709/how-to-generate-a-custom-color-scale-for-plotly-heatmap-in-r
 
 
 if __name__ == '__main__':
