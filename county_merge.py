@@ -12,12 +12,14 @@ import ffmpy
 
 data_file = 'data.csv'
 per_capita_unit = 1000000
+per_capita_string = '1M'
 start_date = '2020-03-01'
 upper_end = .90
 width = 3840
 height = 1700
-crossfade = 3
+crossfade = 2
 metric = 'cases_pc'
+title = 'US County COVID-19 Cases Per ' + per_capita_string
 slide_time = 2
 
 
@@ -104,7 +106,8 @@ def gen_image(date, dimension, new_df):
 	    show_state_data=False,
 	    county_outline={'color': 'rgb(255, 255, 255)', 'width': 0.5},
 	    show_hover=True, centroid_marker={'opacity': 0},
-	    asp=2.9, width=width, height=height
+	    asp=2.9, width=width, height=height,
+	    title=title
 	)
 
 	fig.update_layout(dict(
@@ -193,19 +196,24 @@ def get_images_list(dimension):
 
 
 def main():
-	# new_df = gen_data()
-	# gen_image('2020-04-05', 'cases_pc', new_df)
-	# gen_all_images('cases_pc', new_df)
-	# gen_crossfade_frames('2020-03-01', '2020-03-15', 'cases_pc', 1, 2)
-	# gen_crossfade_frames('2020-03-15', '2020-03-30', 'cases_pc', 51, 2)
+	new_df = gen_data()
+	gen_all_images('cases_pc', new_df)
 	images = get_images_list(metric)
-	# gen_all_crossfade_frames(images, metric)
+	gen_all_crossfade_frames(images, metric)
 	convert_frames_to_video('videos', metric)
 	# TODO: metric-based naming convention for frames (refactor all methods)
 	# TODO: delete frames after video produced?
 	# TODO: configuration
 	# TODO: log file
 	# TODO: exception handling
+	# TODO: consider rounding numbers to make the legend more clean
+	# TODO: state outlines?
+	# TODO: add title to top *
+	# TODO: Play with DPI https://community.plotly.com/t/increase-the-size-of-legend-symbol-in-plotly/30904
+	# ....  Try 'scale' (bottom) https://stackoverflow.com/questions/43355444/how-can-i-save-plotly-graphs-in-high-quality
+	# TODO: copy/paste image contents https://kite.com/python/examples/3039/pil-copy-a-region-of-an-image-to-another-area
+	# TODO: should be able to get x/y from Gimp
+	# TODO: try *not* filling in with white - rather, using black background
 
 
 if __name__ == '__main__':
