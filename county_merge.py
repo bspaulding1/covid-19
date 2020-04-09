@@ -7,22 +7,26 @@ import plotly.express as px
 from io import StringIO
 import datetime
 import os
+import glob
 import ffmpy
 from colour import Color
 from datetime import datetime
 
 
 data_file = 'data.csv'
-per_capita_unit = 1000000
-per_capita_string = '1M'
-start_date = '2020-03-01'
 upper_end = .85
 width = 1920
 height = 900
 crossfade = 2
-metric = 'cases_pc'
-title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
 slide_time = 2
+per_capita_unit = 1000000
+per_capita_string = '1M'
+start_date = '2020-03-01'
+metric = 'deaths'
+# title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
+# title = 'US County COVID-19 Deaths Per Day Per ' + per_capita_string
+# title = 'US County COVID-19 Total Cases'
+title = 'US County COVID-19 Total Deaths'
 
 
 def log(msg):
@@ -117,13 +121,13 @@ def gen_image(date, dimension, new_df):
 
 	))
 
+	log('Generating %s_%s.png' % (dimension, date))
 	fig.write_image('images/%s_%s.png' % (dimension, date))
 
 
 def gen_all_images(dimension, new_df):
 	dates = new_df['date'].unique().tolist()
 	for date in dates:
-		log('Generating image for ' + date)
 		gen_image(date, dimension, new_df)
 
 
@@ -131,7 +135,7 @@ def gen_indiv_video(date, dimension):
 	# https://ffmpy.readthedocs.io/en/latest/examples.html#complex-command-lines
 	ff = ffmpy.FFmpeg(
 		inputs={'images/cases_pc_2020-04-05.png': 
-			['-loop', '1']
+			['-hide_banner', '-loglevel', 'warning', '-loop', '1']
 		},
 		outputs={'output.mp4': 
 			['-c:v', 'libx264', '-t', '1', '-r', '30', '-pix_fmt', 'yuv420p', '-vf', 'scale=%s:%s' % (width, height)]
@@ -145,17 +149,23 @@ def gen_crossfade_frames(file_1, file_2, dimension, start_num, time):
 	ff = ffmpy.FFmpeg(
 		inputs={
 			file_1: 
-			['-loop', '1'],
+			['-hide_banner', '-loglevel', 'warning', '-loop', '1'],
 			file_2: 
 			['-loop', '1']
 		},
 		outputs={
-			'frames/frame_%05d.png': 
+			'frames/{dimension}_frame_%05d.png'.format(dimension=dimension): 
 			['-start_number', str(start_num), '-filter_complex', '[1:v][0:v]blend=all_expr=\'A*(if(gte(T,{crossfade}),1,T/{crossfade}))+B*(1-(if(gte(T,{crossfade}),1,T/{crossfade})))\''.format(crossfade=crossfade), '-t', str(time)]
 		}
 	)
-	print(ff.cmd)
+	log('Generating crossfade frames from %s to %s' % (file_1, file_2))
 	ff.run()
+
+
+def del_crossfade_frames(dimension):
+	log('Removing frames for ' + dimension)
+	for f in glob.glob('frames/%s_frame_*.png' % dimension):
+		os.remove(f)
 
 
 def gen_all_crossfade_frames(images, dimension):
@@ -172,19 +182,19 @@ def gen_all_crossfade_frames(images, dimension):
 		prev_image = image
 
 
-def convert_frames_to_video(directory, dimension):
+def convert_frames_to_video(dimension):
 	# ffmpeg -i frames/frames_%04d.png -c:v libx264 -pix_fmt yuv420p output.mp4
 	ff = ffmpy.FFmpeg(
 		inputs={
-			'frames/frame_%05d.png': 
-			None
+			'frames/{dimension}_frame_%05d.png'.format(dimension=dimension): 
+			['-hide_banner', '-loglevel', 'warning']
 		},
 		outputs={
-			'%s/%s.mp4' % (directory, dimension): 
+			'videos/%s.mp4' % dimension: 
 			['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-y']
 		}
 	)
-	print(ff.cmd)
+	log('Converting %s frames to video' % dimension)
 	ff.run()
 
 
@@ -241,31 +251,42 @@ def jh(data_type):
 
 def main():
 	new_df = gen_data()
-	gen_all_images('cases_pc', new_df)
+	gen_all_images(metric, new_df)
 	images = get_images_list(metric)
 	gen_all_crossfade_frames(images, metric)
-	convert_frames_to_video('videos', metric)
+	convert_frames_to_video(metric)
+	del_crossfade_frames(metric)
+
 
 	# gen_image('2020-04-01', 'cases_pc', new_df)
 	# gen_image('2020-03-15', 'cases_pc', new_df)
 	# gen_image('2020-03-01', 'cases_pc', new_df)
 
-	# TODO: metric-based naming convention for frames (refactor all methods)
-	# TODO: delete frames after video produced?
-	# TODO: configuration
+
+	# TODO: variablize / configuration (blocks will be best for each dimension)
+	# TODO: command line arguments (dimension, dates, etc.)
 	# TODO: log file / verbosity (print to screen too)
 	# TODO: exception handling
+	# TODO: comments
+	# TODO: refactor methods to be cleaner, better named
+	# TODO: switch to delete image files (all or specific dimension)
+
+	# TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
+	# TODO: build in ability to do truncated run (either starting from x date, or between x and y dates)
+	# TODO: build in a method to diff daily stats, and only generate images / frames for deltas (of course overall config has to have stayed constant)
+	# TODO: argument for "full do-over" mode
 	# TODO: consider rounding numbers to make the legend more clean (?)
 	# TODO: copy/paste image contents https://kite.com/python/examples/3039/pil-copy-a-region-of-an-image-to-another-area
-	# TODO: should be able to get x/y from Gimp
-	# TODO: how to pin bottom number at zero - OR, display white in background by default
-	# ...... https://community.plotly.com/t/how-to-change-colors-for-na-values-to-gray-in-a-choropleth-map/15746/4
-	# TODO: fix the fact that my diff is factoring in negative numbers
+	# ..... x: 1644, y: 79, w:257, h: 642
+	# ..... if i can programmatically place legend, I can also effectively control section I copy/paste (to mitigate resizing in the future)
+	# TODO: timeling along the bottom
+	# ..... https://matplotlib.org/3.1.0/gallery/lines_bars_and_markers/timeline.html
+	# ..... https://stackoverflow.com/questions/44951911/plot-a-binary-timeline-in-matplotlib
+
 	# TODO: link to NY Tracking data
-	# TODO: reduce ffmpeg verbosity and log https://superuser.com/questions/326629/how-can-i-make-ffmpeg-be-quieter-less-verbose
-	# TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
 
 	# TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
+	pass
 
 
 if __name__ == '__main__':
