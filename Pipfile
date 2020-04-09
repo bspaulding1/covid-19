@@ -17,6 +17,7 @@ psutil = "*"
 requests = "*"
 ffmpeg-python = "*"
 ffmpy = "*"
+colour = "*"
 
 [requires]
 python_version = "3.7"

@@ -8,28 +8,30 @@ from io import StringIO
 import datetime
 import os
 import ffmpy
+from colour import Color
+from datetime import datetime
 
 
 data_file = 'data.csv'
 per_capita_unit = 1000000
 per_capita_string = '1M'
 start_date = '2020-03-01'
-upper_end = .90
-width = 3840
-height = 1700
+upper_end = .85
+width = 1920
+height = 900
 crossfade = 2
 metric = 'cases_pc'
-title = 'US County COVID-19 Cases Per ' + per_capita_string
+title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
 slide_time = 2
 
 
-def print_datetime():
-	print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+def log(msg):
+	print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' + msg)
 
 
 def gen_data():
 	if os.path.exists(data_file):
-		new_df = pd.read_csv(data_file, dtype={'fips': str, 'cases': int, 'deaths': int})
+		new_df = pd.read_csv(data_file, dtype={'fips': str})
 		return new_df
 	else:
 		url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
@@ -56,8 +58,9 @@ def gen_data():
 				csv += '%s,%s,%s,"%s","%s"\n' % (date, row['fips'], row['population'], row['county'], row['state'])
 
 		new_df = pd.read_csv(StringIO(csv), dtype={'fips': str})
-
 		new_df = new_df.merge(dat_df, how='left', left_on=['date', 'fips'], right_on=['date', 'fips'])
+
+		# new_df = dat_df.join(pop_df.set_index('fips'), on='fips', lsuffix='_x', rsuffix='_y')
 
 		new_df = new_df[['date', 'fips', 'population', 'county_x', 'state_x', 'cases', 'deaths']]
 		new_df.columns = ['date', 'fips', 'population', 'county', 'state', 'cases', 'deaths']
@@ -66,53 +69,52 @@ def gen_data():
 		new_df['cases'] = new_df['cases'].astype(int)
 		new_df['deaths'] = new_df['deaths'].astype(int)
 
-		new_df['cases_new'] = new_df.groupby('county')['cases'].diff().fillna(0)
-		new_df['deaths_new'] = new_df.groupby('county')['deaths'].diff().fillna(0)
+		new_df['cases_new'] = new_df.groupby(['fips'])['cases'].diff().fillna(0)
+		new_df['deaths_new'] = new_df.groupby('fips')['deaths'].diff().fillna(0)
 
-		new_df['cases_roll'] = new_df.groupby('county')['cases_new'].rolling(3).mean().reset_index(0, drop=True).fillna(0)
-		new_df['deaths_roll'] = new_df.groupby('county')['deaths_new'].rolling(3).mean().reset_index(0, drop=True).fillna(0)
+		new_df['cases_new'] = new_df['cases_new'].apply(lambda x: 0 if x < 0 else x)
+		new_df['deaths_new'] = new_df['deaths_new'].apply(lambda x: 0 if x < 0 else x)
+
+		new_df['cases_roll'] = new_df.groupby('fips')['cases_new'].rolling(3).mean().reset_index(0, drop=True).fillna(0)
+		new_df['deaths_roll'] = new_df.groupby('fips')['deaths_new'].rolling(3).mean().reset_index(0, drop=True).fillna(0)
 
 		new_df['cases_pc'] = new_df['cases_roll'] / new_df['population'] * per_capita_unit
 		new_df['deaths_pc'] = new_df['deaths_roll'] / new_df['population'] * per_capita_unit
 
-		new_df.to_csv('data.csv')
+
+		new_df.to_csv('data.csv', index=False)
 
 		return new_df
+
 
 def gen_image(date, dimension, new_df):
 	fips = new_df['fips'][new_df['date'] == date].unique().tolist()
 	values = new_df[dimension][new_df['date'] == date].tolist()
 
-	colorscale = ['rgb(255,255,255)']
-	for color in enumerate(px.colors.sequential.OrRd):
-	    colorscale.append(color[1])
-
+	colorscale = gen_colorscale()
 	    
-	# TODO: probably need to scope this to the results on the peak day
 	max_range = new_df[dimension][new_df[dimension] > 0].quantile(upper_end)
-
-
-	# TODO: is there a way to make beginning = 0 and white? Or how about background gray?
 	endpts = list(np.linspace(0.01, max_range, len(colorscale) - 1))
 
-
-	# TODO: incorporate title and date, including measurement
-	# TODO: state lines?
-	# TODO: drop county lines but build in state lines once the complete counties are incorporated
 	fig = ff.create_choropleth(
 	    fips=fips, values=values,
 	    binning_endpoints=endpts,
+	    # plot_bgcolor='rgb(0, 0, 0)',
 	    colorscale=colorscale,
-	    show_state_data=False,
-	    county_outline={'color': 'rgb(255, 255, 255)', 'width': 0.5},
+	    show_state_data=True,
+	    # county_outline={'color': 'rgb(255, 255, 255)', 'width': .7},
+	    state_outline={'color': 'rgb(0, 0, 0)', 'width': .5},
 	    show_hover=True, centroid_marker={'opacity': 0},
 	    asp=2.9, width=width, height=height,
-	    title=title
+	    title_text=title
 	)
 
 	fig.update_layout(dict(
-		margin={'pad': 6},
-		legend = {'font': {'size': 30}, 'itemsizing': 'constant'}
+		margin={'pad': 20, 't': 80},
+		legend={'font': {'size': 30}, 'itemsizing': 'constant'},
+		title={'font': {'size': 30}},
+		geo={'landcolor': 'white'}
+
 	))
 
 	fig.write_image('images/%s_%s.png' % (dimension, date))
@@ -121,7 +123,7 @@ def gen_image(date, dimension, new_df):
 def gen_all_images(dimension, new_df):
 	dates = new_df['date'].unique().tolist()
 	for date in dates:
-		print('Generating image for ' + date)
+		log('Generating image for ' + date)
 		gen_image(date, dimension, new_df)
 
 
@@ -179,7 +181,7 @@ def convert_frames_to_video(directory, dimension):
 		},
 		outputs={
 			'%s/%s.mp4' % (directory, dimension): 
-			['-c:v', 'libx264', '-pix_fmt', 'yuv420p']
+			['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-y']
 		}
 	)
 	print(ff.cmd)
@@ -195,29 +197,78 @@ def get_images_list(dimension):
 	return result
 
 
+def gen_colorscale():
+	red = Color('darkred')
+	white = Color('cornsilk')
+	colors = list(red.range_to(white,14))
+	colors_converted = []
+	for color in colors:
+		colors_converted.append(color.hex)
+	colors_converted.append('#fff')
+	return colors_converted[::-1]
+
+
+def jh(data_type):
+	csv_file = 'time_series_covid19_%s_US.csv' % data_type
+
+	if os.path.exists(csv_file):
+		url = csv_file
+		dat_df = pd.read_csv(url, dtype={'FIPS': str})
+	else:
+		url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/' + csv_file
+		dat_df = pd.read_csv(url, dtype={'FIPS': str})
+		dat_df.to_csv(csv_file, index=False)
+
+	base_cols = dat_df.columns.tolist()[:11]
+	date_cols = dat_df.columns.tolist()[11:]
+
+	new_date_cols = []
+	for col in date_cols:
+		col_content = col.split('/')
+		m = col_content[0]
+		d = col_content[1]
+		if len(col_content[0]) == 1:
+			m = '0' + col_content[0]
+		if len(col_content[1]) == 1:
+			d = '0' + col_content[1]
+		new_date_cols.append('20%s-%s-%s' % (col_content[2], m, d))
+
+	dat_df.columns = base_cols + new_date_cols
+	dat_df.rename(columns={'FIPS': 'fips'}, inplace=True)
+
+	print(dat_df)
+
+
 def main():
 	new_df = gen_data()
 	gen_all_images('cases_pc', new_df)
 	images = get_images_list(metric)
 	gen_all_crossfade_frames(images, metric)
 	convert_frames_to_video('videos', metric)
+
+	# gen_image('2020-04-01', 'cases_pc', new_df)
+	# gen_image('2020-03-15', 'cases_pc', new_df)
+	# gen_image('2020-03-01', 'cases_pc', new_df)
+
 	# TODO: metric-based naming convention for frames (refactor all methods)
 	# TODO: delete frames after video produced?
 	# TODO: configuration
-	# TODO: log file
+	# TODO: log file / verbosity (print to screen too)
 	# TODO: exception handling
-	# TODO: consider rounding numbers to make the legend more clean
-	# TODO: state outlines?
-	# TODO: add title to top *
-	# TODO: Play with DPI https://community.plotly.com/t/increase-the-size-of-legend-symbol-in-plotly/30904
-	# ....  Try 'scale' (bottom) https://stackoverflow.com/questions/43355444/how-can-i-save-plotly-graphs-in-high-quality
+	# TODO: consider rounding numbers to make the legend more clean (?)
 	# TODO: copy/paste image contents https://kite.com/python/examples/3039/pil-copy-a-region-of-an-image-to-another-area
 	# TODO: should be able to get x/y from Gimp
-	# TODO: try *not* filling in with white - rather, using black background
-	# TODO: deepen the color range https://stackoverflow.com/questions/44918709/how-to-generate-a-custom-color-scale-for-plotly-heatmap-in-r
+	# TODO: how to pin bottom number at zero - OR, display white in background by default
+	# ...... https://community.plotly.com/t/how-to-change-colors-for-na-values-to-gray-in-a-choropleth-map/15746/4
+	# TODO: fix the fact that my diff is factoring in negative numbers
+	# TODO: link to NY Tracking data
+	# TODO: reduce ffmpeg verbosity and log https://superuser.com/questions/326629/how-can-i-make-ffmpeg-be-quieter-less-verbose
+	# TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
+
+	# TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
 
 
 if __name__ == '__main__':
-	print_datetime()
+	log('START')
 	main()
-	print_datetime()
+	log('END')

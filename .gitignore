@@ -1,5 +1,5 @@
 .DS_Store
-data.csv
+*.csv
 images/*
 !images/empty
 frames/*
