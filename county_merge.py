@@ -201,7 +201,7 @@ def convert_frames_to_video(dimension):
 def get_images_list(dimension):
 	result = []
 	for file in os.listdir('images'):
-		if file.startswith(dimension):
+		if file.startswith(dimension + '_20'):
 			result.append(os.path.join('images', file))
 	result.sort()
 	return result
@@ -262,6 +262,7 @@ def main():
 	# gen_image('2020-03-15', 'cases_pc', new_df)
 	# gen_image('2020-03-01', 'cases_pc', new_df)
 
+	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
 
 	# TODO: variablize / configuration (blocks will be best for each dimension)
 	# TODO: command line arguments (dimension, dates, etc.)
