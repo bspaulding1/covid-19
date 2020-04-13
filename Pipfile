@@ -18,6 +18,7 @@ requests = "*"
 ffmpeg-python = "*"
 ffmpy = "*"
 colour = "*"
+pillow = "*"
 
 [requires]
 python_version = "3.7"

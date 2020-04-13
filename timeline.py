@@ -74,7 +74,7 @@ def gen_timeline_frame(date_string, frame_number, tot_frames):
 def gen_timeline_frames(date_string_list, interval):
 	tot_frames = (len(date_string_list) - 1) * interval
 	for idx, date_string in enumerate(date_string_list):
-		for n in range((idx * interval) + 1, (idx * interval) + interval + 1):
+		for n in range((idx * interval) + 1, (idx * interval) + 1 + interval):
 			gen_timeline_frame(date_string, n, tot_frames)
 
 

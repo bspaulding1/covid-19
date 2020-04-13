@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import pandas as pd
 import numpy as np
 import plotly.figure_factory as ff
@@ -7,6 +8,7 @@ import plotly.express as px
 from io import StringIO
 import datetime
 import os
+import sys
 import glob
 import ffmpy
 from colour import Color
@@ -17,7 +19,7 @@ import timeline
 
 
 data_file = 'data.csv'
-upper_end = .85
+upper_end = .9
 width = 1920
 height = 1100
 crossfade = 2
@@ -38,17 +40,24 @@ def log(msg):
 
 def gen_data():
 	if os.path.exists(data_file):
+		log('reading in existing data file')
 		new_df = pd.read_csv(data_file, dtype={'fips': str})
 		return new_df
 	else:
+		log('retrieving data file from nytimes github')
 		url = 'https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv'
+		log('data file retrieved')
+		log('creating base pandas dataframe')
 		dat_df = pd.read_csv(url, dtype={'fips': str})
 
 		dat_df = dat_df[dat_df.date >= start_date]
 
 		dates = dat_df['date'].unique().tolist()
 
+		log('retrieving data file from census.gov')
 		url = 'https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/totals/co-est2019-alldata.csv'
+		log('data file retrieved')
+		log('creating population dataframe')
 		pop_df = pd.read_csv(url, encoding='ISO-8859-1', dtype={'SUBLEV': str, 'REGION': str, 'DIVISION': str, 'STATE': str, 'COUNTY': str})
 
 
@@ -64,6 +73,7 @@ def gen_data():
 			for idx, row in pop_df.iterrows():
 				csv += '%s,%s,%s,"%s","%s"\n' % (date, row['fips'], row['population'], row['county'], row['state'])
 
+		log('merging data frames')
 		new_df = pd.read_csv(StringIO(csv), dtype={'fips': str})
 		new_df = new_df.merge(dat_df, how='left', left_on=['date', 'fips'], right_on=['date', 'fips'])
 
@@ -73,6 +83,7 @@ def gen_data():
 		new_df.columns = ['date', 'fips', 'population', 'county', 'state', 'cases', 'deaths']
 		new_df = new_df.fillna(0)
 
+		log('calculating new columns')
 		new_df['cases'] = new_df['cases'].astype(int)
 		new_df['deaths'] = new_df['deaths'].astype(int)
 
@@ -88,9 +99,10 @@ def gen_data():
 		new_df['cases_pc'] = new_df['cases_roll'] / new_df['population'] * per_capita_unit
 		new_df['deaths_pc'] = new_df['deaths_roll'] / new_df['population'] * per_capita_unit
 
-
+		log('saving merged dataframe')
 		new_df.to_csv('data.csv', index=False)
 
+		log('done processing dataframe')
 		return new_df
 
 
@@ -120,9 +132,38 @@ def gen_image(date, dimension, new_df):
 		margin={'pad': 20, 't': 80, 'b': 200},
 		legend={'font': {'size': 30}, 'itemsizing': 'constant'},
 		title={'font': {'size': 30}},
-		geo={'landcolor': 'white'}
-
+		geo={'landcolor': 'white'},
 	))
+
+	fig.add_annotation(
+        x=1,
+        y=.07,
+        showarrow=False,
+        font=dict(size=20),
+        text="Produced by Bryan Spaulding",
+        xref="paper",
+        yref="paper"		
+	)
+	fig.add_annotation(
+        x=1,
+        y=.02,
+        showarrow=False,
+        font=dict(size=15),
+        text="Data source: NY Times",
+        xref="paper",
+        yref="paper"		
+	)
+	fig.add_annotation(
+        x=1,
+        y=0,
+        showarrow=False,
+        font=dict(size=15),
+        text="https://www.nytimes.com/interactive/2020/us/coronavirus-us-cases.html",
+        xref="paper",
+        yref="paper"		
+	)
+
+
 
 	log('Generating %s_%s.png' % (dimension, date))
 	fig.write_image('images/%s_%s.png' % (dimension, date))
@@ -213,8 +254,8 @@ def get_images_list(dimension):
 
 def gen_colorscale():
 	red = Color('darkred')
-	white = Color('cornsilk')
-	colors = list(red.range_to(white,14))
+	white = Color('blanchedalmond')
+	colors = list(red.range_to(white,7))
 	colors_converted = []
 	for color in colors:
 		colors_converted.append(color.hex)
@@ -222,10 +263,10 @@ def gen_colorscale():
 	return colors_converted[::-1]
 
 
-def integrate_frame(frame_num, dimension):
-	frame_file = 'frames/%s_frame_%s.png' % (dimension, frame_num)
-	tl_file = 'frames/timeline_%s.png' % frame_num
-	final_file = 'frames/%s_tl_frame_%s.png' % (dimension, frame_num)
+def integrate_frame(dim_frame_num, tl_frame_num, dimension):
+	frame_file = 'frames/%s_frame_%s.png' % (dimension, dim_frame_num)
+	tl_file = 'frames/timeline_%s.png' % tl_frame_num
+	final_file = 'frames/%s_tl_frame_%s.png' % (dimension, tl_frame_num)
 
 	log('generating integrated file: ' + final_file)
 
@@ -243,10 +284,61 @@ def integrate_frame(frame_num, dimension):
 def gen_integrated_frames(images, dimension):
 	num_frames = (len(images) - 1) * 50
 	for n in range(1, num_frames + 1):
-		integrate_frame('%05d' % n, dimension)
+		integrate_frame('%05d' % n, '%05d' % n, dimension)
+	integrate_frame('%05d' % num_frames, '%05d' % (num_frames + 1), dimension)
+
+
+def delete_all_frames():
+		log('deleting all frame files')
+		for file in glob.glob('frames/*.png'):
+			os.remove(file)
+		sys.exit(0)
+
+
+def delete_all_images():
+		log('deleting all image files')
+		for file in glob.glob('images/*.png'):
+			os.remove(file)
+		sys.exit(0)
+
+
+def overlay_full_legend(dimension, df):
+	date_df = df[df[dimension] > 0]
+	date_df = date_df.groupby('date')[dimension].size().reset_index(name='count')
+	max_df = date_df.loc[date_df['count'].idxmax()]
+	max_date = max_df['date']
+
+	sel_coordinates = (1684, 80, 1900, 426)
+
+	max_file = 'images/%s_%s.png' % (dimension, max_date)
+	max_img = Image.open(max_file).convert('RGBA')
+	selection = max_img.crop(sel_coordinates)
+
+	for file in sorted(glob.glob('images/%s_20*.png' % dimension)):
+		if file != max_file:
+			log('updating legend for ' + file)
+			this_file = Image.open(file).convert('RGBA')
+			this_file.paste(selection, sel_coordinates)
+			this_file.save(file)
 
 
 def main():
+	parser = argparse.ArgumentParser(
+		description='Script for processing COVID-19 data and creating video')
+	parser.add_argument('--delete-all-frames', action="store_true", default=False, 
+		dest='delete_all_frames', help='delete all frame files')
+	parser.add_argument('--delete-all-images', action="store_true", default=False, 
+		dest='delete_all_images', help='delete all image files')
+	args = parser.parse_args()
+
+
+	if args.delete_all_frames:
+		delete_all_frames()
+
+	if args.delete_all_images:
+		delete_all_images()
+
+
 	new_df = gen_data()
 
 	date_list = new_df['date'].unique().tolist()
@@ -254,48 +346,45 @@ def main():
 	timeline.gen_timeline_frames(date_list, 50)
 
 	gen_all_images(metric, new_df)
+	overlay_full_legend(metric, new_df)
 
 	images = get_images_list(metric)
 	gen_all_crossfade_frames(images, metric)
 	gen_integrated_frames(images, metric)
 	convert_frames_to_video(metric)
-	# del_crossfade_frames(metric)
 
+
+
+	# del_crossfade_frames(metric)
 
 	# gen_image('2020-03-01', 'cases_pc', new_df)
 	# gen_image('2020-03-15', 'cases_pc', new_df)
 	# gen_image('2020-03-01', 'cases_pc', new_df)
+	# gen_image('2020-04-12', 'cases_pc', new_df)
 
 	# integrate_frame('00001', 'cases_pc')
 
-	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
+
+
 
 	# TODO: variablize / configuration (blocks will be best for each dimension)
-	# TODO: command line arguments (dimension, dates, etc.)
+	# TODO: eliminate global variables
 	# TODO: log file / verbosity (print to screen too)
 	# TODO: exception handling
 	# TODO: comments
 	# TODO: refactor methods to be cleaner, better named
 	# TODO: switch to delete image files (all or specific dimension)
 
-	# TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
+	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
+
+	# TODO: rename this file to something more logical
+	# TODO: merge timeline.py into this file
+	# TODO: make image / frame / video sizes all driven off same value
+	# TODO: argument for "full do-over" mode
 	# TODO: build in ability to do truncated run (either starting from x date, or between x and y dates)
 	# TODO: build in a method to diff daily stats, and only generate images / frames for deltas (of course overall config has to have stayed constant)
-	# TODO: argument for "full do-over" mode
-	# TODO: consider rounding numbers to make the legend more clean (?)
-	# TODO: copy/paste image contents https://kite.com/python/examples/3039/pil-copy-a-region-of-an-image-to-another-area
-	# ..... x: 1644, y: 79, w:257, h: 642
-	# ..... if i can programmatically place legend, I can also effectively control section I copy/paste (to mitigate resizing in the future)
-	# TODO: timeling along the bottom
-	# ..... https://matplotlib.org/3.1.0/gallery/lines_bars_and_markers/timeline.html
-	# ..... https://stackoverflow.com/questions/44951911/plot-a-binary-timeline-in-matplotlib
-	# TODO: make image / frame / video sizes all driven off same value
-	# TODO: weave another color into the scale, and increase the number of bands in order to show more nuance
-
-	# TODO: link to NY Tracking data
-
+	# TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
 	# TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
-	pass
 
 
 if __name__ == '__main__':
