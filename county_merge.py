@@ -11,22 +11,25 @@ import glob
 import ffmpy
 from colour import Color
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+import timeline
 
 
 data_file = 'data.csv'
 upper_end = .85
 width = 1920
-height = 900
+height = 1100
 crossfade = 2
 slide_time = 2
-per_capita_unit = 1000000
-per_capita_string = '1M'
+per_capita_unit = 100000
+per_capita_string = '100K'
 start_date = '2020-03-01'
-metric = 'deaths'
-# title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
+metric = 'cases_pc'
+title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
 # title = 'US County COVID-19 Deaths Per Day Per ' + per_capita_string
 # title = 'US County COVID-19 Total Cases'
-title = 'US County COVID-19 Total Deaths'
+# title = 'US County COVID-19 Total Deaths'
 
 
 def log(msg):
@@ -114,7 +117,7 @@ def gen_image(date, dimension, new_df):
 	)
 
 	fig.update_layout(dict(
-		margin={'pad': 20, 't': 80},
+		margin={'pad': 20, 't': 80, 'b': 200},
 		legend={'font': {'size': 30}, 'itemsizing': 'constant'},
 		title={'font': {'size': 30}},
 		geo={'landcolor': 'white'}
@@ -186,7 +189,7 @@ def convert_frames_to_video(dimension):
 	# ffmpeg -i frames/frames_%04d.png -c:v libx264 -pix_fmt yuv420p output.mp4
 	ff = ffmpy.FFmpeg(
 		inputs={
-			'frames/{dimension}_frame_%05d.png'.format(dimension=dimension): 
+			'frames/{dimension}_tl_frame_%05d.png'.format(dimension=dimension): 
 			['-hide_banner', '-loglevel', 'warning']
 		},
 		outputs={
@@ -218,49 +221,52 @@ def gen_colorscale():
 	return colors_converted[::-1]
 
 
-def jh(data_type):
-	csv_file = 'time_series_covid19_%s_US.csv' % data_type
+def integrate_frame(frame_num, dimension):
+	frame_file = 'frames/%s_frame_%s.png' % (dimension, frame_num)
+	tl_file = 'frames/timeline_%s.png' % frame_num
+	final_file = 'frames/%s_tl_frame_%s.png' % (dimension, frame_num)
 
-	if os.path.exists(csv_file):
-		url = csv_file
-		dat_df = pd.read_csv(url, dtype={'FIPS': str})
-	else:
-		url = 'https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/' + csv_file
-		dat_df = pd.read_csv(url, dtype={'FIPS': str})
-		dat_df.to_csv(csv_file, index=False)
+	log('generating integrated file: ' + final_file)
 
-	base_cols = dat_df.columns.tolist()[:11]
-	date_cols = dat_df.columns.tolist()[11:]
+	img_main = Image.open(frame_file).convert('RGBA')
+	img_tl = Image.open(tl_file).convert('RGBA')
+	# TODO: calculate image sizes and placement
+	main_w, main_h = img_main.size
+	tl_w, tl_h = img_tl.size
+	paste_x1 = (main_w / 2) - (tl_w / 2)
+	paste_y1 = main_h - tl_h - 30
+	img_main.paste(img_tl, (int(paste_x1), int(paste_y1)))
+	img_main.save(final_file)
 
-	new_date_cols = []
-	for col in date_cols:
-		col_content = col.split('/')
-		m = col_content[0]
-		d = col_content[1]
-		if len(col_content[0]) == 1:
-			m = '0' + col_content[0]
-		if len(col_content[1]) == 1:
-			d = '0' + col_content[1]
-		new_date_cols.append('20%s-%s-%s' % (col_content[2], m, d))
 
-	dat_df.columns = base_cols + new_date_cols
-	dat_df.rename(columns={'FIPS': 'fips'}, inplace=True)
-
-	print(dat_df)
+def gen_integrated_frames(images, dimension):
+	num_frames = (len(images) - 1) * 50
+	for n in range(1, num_frames + 1):
+		integrate_frame('%05d' % n, dimension)
 
 
 def main():
 	new_df = gen_data()
-	gen_all_images(metric, new_df)
-	images = get_images_list(metric)
-	gen_all_crossfade_frames(images, metric)
+
+	# date_list = new_df['date'].unique().tolist()
+	# timeline.gen_base_timeline_image(date_list)
+	# timeline.gen_timeline_frames(date_list, 50)
+
+
+	# gen_all_images(metric, new_df)
+
+	# images = get_images_list(metric)
+	# gen_all_crossfade_frames(images, metric)
+	# gen_integrated_frames(images, metric)
 	convert_frames_to_video(metric)
-	del_crossfade_frames(metric)
+	# del_crossfade_frames(metric)
 
 
-	# gen_image('2020-04-01', 'cases_pc', new_df)
+	# gen_image('2020-03-01', 'cases_pc', new_df)
 	# gen_image('2020-03-15', 'cases_pc', new_df)
 	# gen_image('2020-03-01', 'cases_pc', new_df)
+
+	# integrate_frame('00001', 'cases_pc')
 
 	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
 
@@ -283,6 +289,8 @@ def main():
 	# TODO: timeling along the bottom
 	# ..... https://matplotlib.org/3.1.0/gallery/lines_bars_and_markers/timeline.html
 	# ..... https://stackoverflow.com/questions/44951911/plot-a-binary-timeline-in-matplotlib
+	# TODO: make image / frame / video sizes all driven off same value
+	# TODO: weave another color into the scale, and increase the number of bands in order to show more nuance
 
 	# TODO: link to NY Tracking data
 
