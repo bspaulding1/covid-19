@@ -367,6 +367,7 @@ def main():
 
 
 
+	# TODO: command line arguments to run in diff modes
 	# TODO: variablize / configuration (blocks will be best for each dimension)
 	# TODO: eliminate global variables
 	# TODO: log file / verbosity (print to screen too)
@@ -375,6 +376,7 @@ def main():
 	# TODO: refactor methods to be cleaner, better named
 	# TODO: switch to delete image files (all or specific dimension)
 
+	# TODO: incorporate frame / image deletion after job completion
 	# TODO: change color of timeline red to something in the colorscale
 	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
 
