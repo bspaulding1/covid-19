@@ -375,6 +375,7 @@ def main():
 	# TODO: refactor methods to be cleaner, better named
 	# TODO: switch to delete image files (all or specific dimension)
 
+	# TODO: change color of timeline red to something in the colorscale
 	# TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
 
 	# TODO: rename this file to something more logical
