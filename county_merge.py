@@ -175,6 +175,7 @@ def gen_all_crossfade_frames(images, dimension):
 	prev_image = None
 	images_len = len(images)
 	for idx, image in enumerate(images):
+		# print(prev_image, image, idx)
 		file_start = ((idx - 1) * 25 * slide_time) + 1
 		if idx == 0:
 			prev_image = image
@@ -248,16 +249,15 @@ def gen_integrated_frames(images, dimension):
 def main():
 	new_df = gen_data()
 
-	# date_list = new_df['date'].unique().tolist()
-	# timeline.gen_base_timeline_image(date_list)
-	# timeline.gen_timeline_frames(date_list, 50)
+	date_list = new_df['date'].unique().tolist()
+	timeline.gen_base_timeline_image(date_list)
+	timeline.gen_timeline_frames(date_list, 50)
 
+	gen_all_images(metric, new_df)
 
-	# gen_all_images(metric, new_df)
-
-	# images = get_images_list(metric)
-	# gen_all_crossfade_frames(images, metric)
-	# gen_integrated_frames(images, metric)
+	images = get_images_list(metric)
+	gen_all_crossfade_frames(images, metric)
+	gen_integrated_frames(images, metric)
 	convert_frames_to_video(metric)
 	# del_crossfade_frames(metric)
 

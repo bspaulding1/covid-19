@@ -72,7 +72,7 @@ def gen_timeline_frame(date_string, frame_number, tot_frames):
 
 
 def gen_timeline_frames(date_string_list, interval):
-	tot_frames = len(date_string_list) * interval
+	tot_frames = (len(date_string_list) - 1) * interval
 	for idx, date_string in enumerate(date_string_list):
 		for n in range((idx * interval) + 1, (idx * interval) + interval + 1):
 			gen_timeline_frame(date_string, n, tot_frames)
@@ -81,7 +81,7 @@ def gen_timeline_frames(date_string_list, interval):
 def gen_base_timeline_image(date_string_list):
 	log('generating base timeline image')
 
-	num_hashes = len(date_string_list)
+	num_hashes = len(date_string_list) - 1
 	hash_space = line_width / (num_hashes - 1)
 
 	f = ImageFont.truetype(font='Courier', size=font_size, index=0, encoding='')
