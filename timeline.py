@@ -63,10 +63,10 @@ def gen_timeline_frame(date_string, frame_number, tot_frames):
 	img_f = ImageFont.truetype(font='Courier', size=big_font, index=0, encoding='')
 	draw = ImageDraw.Draw(img)
 
-	draw.polygon([x_position, mid_height - ellipse_offset, x_position - ellipse_offset, mid_height, x_position, mid_height + ellipse_offset, x_position + ellipse_offset, mid_height], outline=(255,0,0), fill=(255,0,0))
+	draw.polygon([x_position, mid_height - ellipse_offset, x_position - ellipse_offset, mid_height, x_position, mid_height + ellipse_offset, x_position + ellipse_offset, mid_height], outline=(246,49,0), fill=(246,49,0))
 
 	txt_w, txt_h = draw.textsize(date_string, font=img_f)
-	draw.text((img_width / 2 - txt_w / 2, img_height - 10 - txt_h), date_string, font=img_f, fill=(255,0,0))
+	draw.text((img_width / 2 - txt_w / 2, img_height - 10 - txt_h), date_string, font=img_f, fill=(246,49,0))
 
 	img.save('frames/' + file_name)
 

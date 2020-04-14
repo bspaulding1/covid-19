@@ -34,6 +34,8 @@ title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
 
 
 def log(msg):
+    '''Simple console logger'''
+
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' + msg)
 
 
@@ -285,7 +287,6 @@ def integrate_frame(dim_frame_num, tl_frame_num, dimension):
 
     img_main = Image.open(frame_file).convert('RGBA')
     img_tl = Image.open(tl_file).convert('RGBA')
-    # TODO: calculate image sizes and placement
     main_w, main_h = img_main.size
     tl_w, tl_h = img_tl.size
     paste_x1 = (main_w / 2) - (tl_w / 2)
@@ -374,8 +375,6 @@ def main():
     # gen_image('2020-04-12', 'cases_pc', new_df)
 
     # integrate_frame('00001', 'cases_pc')
-
-
 
 
     # TODO: command line arguments to run in diff modes
