@@ -93,7 +93,6 @@ def gen_base_timeline_image(date_string_list):
 
  
 	img = Image.new('RGB', (img_width, img_height), color = 'white')
-	img_f = ImageFont.truetype(font='Courier', size=big_font, index=0, encoding='')
 	draw = ImageDraw.Draw(img)
 	draw.line((hash_start, mid_height, hash_end, mid_height), fill=(0,0,0), width=2)
 	for x in range(0, num_hashes):

@@ -34,12 +34,12 @@ title = 'US County COVID-19 New Cases Per Day Per ' + per_capita_string
 
 
 def log(msg):
-    '''Simple console logger'''
-
+    """Log provided message to console along with timestamp."""
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' + msg)
 
 
 def gen_data():
+    """Retrieve data from datasources and merge into dataframe."""
     if os.path.exists(data_file):
         log('reading in existing data file')
         new_df = pd.read_csv(data_file, dtype={'fips': str})
@@ -116,6 +116,7 @@ def gen_data():
 
 
 def gen_image(date, dimension, new_df):
+    """Create map image for specific date and dimension."""
     fips = new_df['fips'][new_df['date'] == date].unique().tolist()
     values = new_df[dimension][new_df['date'] == date].tolist()
 
@@ -179,6 +180,7 @@ def gen_image(date, dimension, new_df):
 
 
 def gen_all_images(dimension, new_df):
+    """Iterate over dataframe and generate associated map images."""
     dates = new_df['date'].unique().tolist()
     for date in dates:
         gen_image(date, dimension, new_df)
@@ -229,16 +231,12 @@ def del_crossfade_frames(dimension):
 
 def gen_all_crossfade_frames(images, dimension):
     prev_image = None
-    images_len = len(images)
     for idx, image in enumerate(images):
-        # print(prev_image, image, idx)
         file_start = ((idx - 1) * 25 * slide_time) + 1
         if idx == 0:
             prev_image = image
             continue
-
         gen_crossfade_frames(prev_image, image, dimension, file_start, slide_time)
-
         prev_image = image
 
 
