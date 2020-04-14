@@ -365,10 +365,8 @@ def main():
     gen_all_crossfade_frames(images, metric)
     gen_integrated_frames(images, metric)
     convert_frames_to_video(metric)
-
-
-
     # del_crossfade_frames(metric)
+
 
     # gen_image('2020-03-01', 'cases_pc', new_df)
     # gen_image('2020-03-15', 'cases_pc', new_df)
@@ -392,6 +390,7 @@ def main():
 
     # TODO: incorporate frame / image deletion after job completion
     # TODO: change color of timeline red to something in the colorscale
+    # ..... ['#fff', '#ffebcd', '#ffcb97', '#ffa162', '#ff6c2c', '#f63100', '#c01300', '#8b0000']
     # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
 
     # TODO: rename this file to something more logical
