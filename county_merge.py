@@ -400,6 +400,21 @@ def main():
     # TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
     # TODO: script to temporarily utilize ec2 instance, pushing result to s3
 
+    # Configuration (arguments) options [VISUALLY MAP INTERDEPENDENCIES]
+    # * dimension
+    # * begin / end dates
+    # * image dimension (downstream variables!)
+    # * transition timing (downstream variables! > frames)
+    # * slide title
+    # * per capita unit
+    # * colorscale beg / end colors
+    # * coordinates / dimensions of legend
+    # * upper binendings (sp?) quantile
+    # * ability to keep or delete all working files
+    # * temp storage directory for images, frames
+    # * datasource URLs
+    # * base file names / patterns (?)
+
 
 if __name__ == '__main__':
     log('START')
