@@ -364,7 +364,6 @@ def main():
     gen_all_crossfade_frames(images, metric)
     gen_integrated_frames(images, metric)
     convert_frames_to_video(metric)
-    # del_crossfade_frames(metric)
 
 
     # gen_image('2020-03-01', 'cases_pc', new_df)
@@ -375,20 +374,22 @@ def main():
     # integrate_frame('00001', 'cases_pc')
 
 
-    # TODO: command line arguments to run in diff modes
+    # TODO: command line arguments to run in different modes, dimensions (whatare these?)
     # TODO: variablize / configuration (blocks will be best for each dimension)
-    # ..... https://www.reddit.com/r/learnpython/comments/2hjxk5/whats_the_proper_way_to_use_configparser_across/
+    # ..... https://www.reddit.com/r/learnpython/comments/2hjxk5/ \
+    #       whats_the_proper_way_to_use_configparser_across/
     # TODO: eliminate global variables
     # TODO: log file / verbosity (print to screen too)
     # TODO: exception handling
     # TODO: comments
-    # TODO: refactor methods to be cleaner, better named
+    # TODO: refactor methods, variables to be cleaner, better named
     # TODO: switch to delete image files (all or specific dimension)
 
-    # TODO: incorporate frame / image deletion after job completion
-    # TODO: change color of timeline red to something in the colorscale
-    # ..... ['#fff', '#ffebcd', '#ffcb97', '#ffa162', '#ff6c2c', '#f63100', '#c01300', '#8b0000']
-    # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate.
+    # TODO: incorporate credit for Census datasource
+    # TODO: adjust timing (make configuration / cl argument driven)
+    # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate
+    # TODO: delete previous data before run?  after run?
+    # TODO: store working data in directory that's not backed up by timemachine
 
     # TODO: rename this file to something more logical
     # TODO: merge timeline.py into this file
@@ -396,10 +397,8 @@ def main():
     # TODO: argument for "full do-over" mode
     # TODO: build in ability to do truncated run (either starting from x date, or between x and
     #       y dates)
-    # TODO: build in a method to diff daily stats, and only generate images / frames for deltas
-    #       (of course overall config has to have stayed constant)
-    # TODO: intelligence on retrieving new data automatically (i.e., if ~24 hours old)
     # TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
+    # TODO: script to temporarily utilize ec2 instance, pushing result to s3
 
 
 if __name__ == '__main__':
