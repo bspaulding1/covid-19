@@ -24,6 +24,7 @@ rope = "*"
 pep8 = "*"
 autopep8 = "*"
 configparser = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.7"

@@ -16,6 +16,7 @@ import plotly.figure_factory as ff
 import ffmpy
 from colour import Color
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+from tqdm import tqdm
 
 from config import CONFIG
 
@@ -157,9 +158,7 @@ def get_df_slice(start_date=None, end_date=None):
 
 
 def gen_image(date, metric, new_df):
-    """Create map image for specific date and dimension."""
-    log('generating %s_%s.png' % (metric, date))
-
+    """Create map image for specific date and metric."""
     fips = new_df['fips'][new_df['date'] == date].unique().tolist()
     values = new_df[metric][new_df['date'] == date].tolist()
 
@@ -223,8 +222,12 @@ def gen_image(date, metric, new_df):
 def gen_all_images(metric, df):
     """Iterate over dataframe and generate associated map images."""
     date_list = df['date'].unique().tolist()
-    for date_string in date_list:
-        gen_image(date_string, metric, df)
+    with tqdm(total=len(date_list)) as pbar:
+        for date_string in date_list:
+            pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
+                                 'generating main map images')
+            gen_image(date_string, metric, df)
+            pbar.update(1)
     overlay_full_legend(metric, df)
 
 
@@ -245,7 +248,6 @@ def gen_crossfade_frames(file_1, file_2, metric, start_num, time):
              '-t', str(time)]
         }
     )
-    log('Generating crossfade frames from %s to %s' % (file_1, file_2))
     ff.run()
 
 
@@ -261,13 +263,17 @@ def gen_all_crossfade_frames(metric):
     frames_per_day = CONFIG.getint('default', 'frames_per_day')
     slide_time = CONFIG.getint('default', 'slide_time')
     total_frames = frames_per_day * (len(images_list) - 1)
-    for idx, image in enumerate(images_list):
-        file_start = ((idx - 1) * frames_per_day) + 1
-        if idx == 0:
+    with tqdm(total=len(images_list) - 1) as pbar:
+        for idx, image in enumerate(images_list):
+            pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
+                                 'generating crossfade frames')
+            file_start = ((idx - 1) * frames_per_day) + 1
+            if idx == 0:
+                prev_image = image
+                continue
+            gen_crossfade_frames(prev_image, image, metric, file_start, slide_time)
             prev_image = image
-            continue
-        gen_crossfade_frames(prev_image, image, metric, file_start, slide_time)
-        prev_image = image
+            pbar.update(1)
     extra_frame_num = total_frames + 1
     copyfile(
         'frames/%s_frame_%05d.png' % (metric, total_frames),
@@ -275,18 +281,18 @@ def gen_all_crossfade_frames(metric):
     )
 
 
-def convert_frames_to_video(dimension):
+def convert_frames_to_video(metric):
     ff = ffmpy.FFmpeg(
         inputs={
-            'frames/{dimension}_tl_frame_%05d.png'.format(dimension=dimension):
+            'frames/{metric}_tl_frame_%05d.png'.format(metric=metric):
             ['-hide_banner', '-loglevel', 'warning']
         },
         outputs={
-            'videos/%s.mp4' % dimension:
+            'videos/%s.mp4' % metric:
             ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-y']
         }
     )
-    log('Converting %s frames to video' % dimension)
+    log('Converting %s frames to video' % metric)
     ff.run()
 
 
@@ -310,12 +316,10 @@ def gen_colorscale():
     return colors_converted[::-1]
 
 
-def integrate_frame(dim_frame_num, tl_frame_num, dimension):
-    frame_file = 'frames/%s_frame_%s.png' % (dimension, dim_frame_num)
+def integrate_frame(dim_frame_num, tl_frame_num, metric):
+    frame_file = 'frames/%s_frame_%s.png' % (metric, dim_frame_num)
     tl_file = 'frames/timeline_%s.png' % tl_frame_num
-    final_file = 'frames/%s_tl_frame_%s.png' % (dimension, tl_frame_num)
-
-    log('generating integrated file: ' + final_file)
+    final_file = 'frames/%s_tl_frame_%s.png' % (metric, tl_frame_num)
 
     img_main = Image.open(frame_file).convert('RGBA')
     img_tl = Image.open(tl_file).convert('RGBA')
@@ -330,8 +334,12 @@ def integrate_frame(dim_frame_num, tl_frame_num, dimension):
 def gen_integrated_frames(metric):
     images = get_images_list(metric)
     num_frames = (len(images) - 1) * 50 + 1
-    for n in range(1, num_frames + 1):
-        integrate_frame('%05d' % n, '%05d' % n, metric)
+    with tqdm(total=num_frames) as pbar:
+        for n in range(1, num_frames + 1):
+            pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
+                                 'generating integrated frames')
+            pbar.update(1)
+            integrate_frame('%05d' % n, '%05d' % n, metric)
 
 
 def delete_all_frames():
@@ -346,9 +354,9 @@ def delete_all_images():
         os.remove(file)
 
 
-def overlay_full_legend(dimension, df):
-    date_df = df[df[dimension] > 0]
-    date_df = date_df.groupby('date')[dimension].size().reset_index(name='count')
+def overlay_full_legend(metric, df):
+    date_df = df[df[metric] > 0]
+    date_df = date_df.groupby('date')[metric].size().reset_index(name='count')
     max_df = date_df.loc[date_df['count'].idxmax()]
     max_date = max_df['date']
 
@@ -359,16 +367,20 @@ def overlay_full_legend(dimension, df):
         int(CONFIG.get('default', 'legend_y2'))
     )
 
-    max_file = 'images/%s_%s.png' % (dimension, max_date)
+    max_file = 'images/%s_%s.png' % (metric, max_date)
     max_img = Image.open(max_file).convert('RGBA')
     selection = max_img.crop(sel_coordinates)
 
-    for file in sorted(glob.glob('images/%s_20*.png' % dimension)):
-        if file != max_file:
-            log('updating legend for ' + file)
-            this_file = Image.open(file).convert('RGBA')
-            this_file.paste(selection, sel_coordinates)
-            this_file.save(file)
+    file_list = sorted(glob.glob('images/%s_20*.png' % metric))
+    with tqdm(total=len(file_list) - 1) as pbar:
+        for idx, file in enumerate(file_list):
+            if file != max_file:
+                pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
+                                     'updating map image legends')
+                pbar.update(1)
+                this_file = Image.open(file).convert('RGBA')
+                this_file.paste(selection, sel_coordinates)
+                this_file.save(file)
 
 
 def valid_date(s):
@@ -406,7 +418,6 @@ def gen_date_string_list(date_list):
 def gen_timeline_frame(date_string, idx, tot_frames):
     frame_number = idx + 1
     file_name = 'timeline_%05d.png' % frame_number
-    log('generating ' + file_name)
 
     percent_complete = idx / tot_frames
     x_position = tl_hash_start + (tl_width * percent_complete)
@@ -431,12 +442,16 @@ def gen_timeline_frames(df):
     date_list = df['date'].unique().tolist()
     gen_base_timeline_image(date_list)
     tot_frames = (len(date_list) - 1) * interval
-    for idx, date_string in enumerate(date_list):
-        if idx == len(date_list) - 1:
-            gen_timeline_frame(date_string, tot_frames, tot_frames)
-            break
-        for n in range((idx * interval), (idx * interval) + interval):
-            gen_timeline_frame(date_string, n, tot_frames)
+    with tqdm(total=tot_frames) as pbar:
+        for idx, date_string in enumerate(date_list):
+            if idx == len(date_list) - 1:
+                gen_timeline_frame(date_string, tot_frames, tot_frames)
+                break
+            for n in range((idx * interval), (idx * interval) + interval):
+                gen_timeline_frame(date_string, n, tot_frames)
+                pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' + 
+                    'generating timeline frames')
+                pbar.update(1)
 
 
 def gen_base_timeline_image(date_list):
@@ -471,100 +486,104 @@ def gen_base_timeline_image(date_list):
 
 
 def main():
+
+    metrics_list = CONFIG.get('default', 'metrics_list').split(',')
+
     parser = argparse.ArgumentParser(
         description='Script for processing COVID-19 data and creating video')
     parser.add_argument('--delete-all-frames', action="store_true", default=False,
                         dest='delete_all_frames', help='delete all frame files')
     parser.add_argument('--delete-all-images', action="store_true", default=False,
                         dest='delete_all_images', help='delete all image files')
-    parser.add_argument('-s', default=None, dest='start_date', type=valid_date,
+    parser.add_argument('-b', default=None, dest='begin_date', type=valid_date,
                         help='start date of date range - format YYYY-MM-DD')
     parser.add_argument('-e', default=None, dest='end_date', type=valid_date,
                         help='end date of date range - format YYYY-MM-DD')
+    parser.add_argument('-i', default=None, dest='specific_date', type=valid_date,
+                        help='create image for specific date - format YYYY-MM-DD')
+    parser.add_argument('-m', default=None, dest='metric', choices=metrics_list,
+                        help='specify which metric (default: cases_pc)')
     args = parser.parse_args()
-
-    metric = CONFIG.get('default', 'metric')
+    # -f for frame
+    # -d for deleting of some ilk
+    # -y for auto-confirming
+    # -r refresh data calculations
+    # -o output file path + name
+    # -l leave working files in place
 
     quick_exit = False
 
+    if args.metric:
+        metric = args.metric
+    else:
+        metric = CONFIG.get('default', 'metric')
+
+    if args.delete_all_frames or args.delete_all_images or args.specific_date:
+        quick_exit = True
+
     if args.delete_all_frames:
         delete_all_frames()
-        quick_exit = True
 
     if args.delete_all_images:
         delete_all_images()
-        quick_exit = True
+
+    if args.specific_date:
+        gen_data()
+        vid_df = get_df_slice(start_date=args.start_date, end_date=args.end_date)
+        gen_image(args.specific_date, metric, vid_df)
 
     if not quick_exit:
         gen_data()
-
         vid_df = get_df_slice(start_date=args.start_date, end_date=args.end_date)
-
         gen_timeline_frames(vid_df)
-
         gen_all_images(metric, vid_df)
-
         gen_all_crossfade_frames(metric)
-
         gen_integrated_frames(metric)
-
         convert_frames_to_video(metric)
-
-
-    # gen_image('2020-03-01', 'cases_pc', new_df)
-    # gen_image('2020-03-15', 'cases_pc', new_df)
-    # gen_image('2020-03-01', 'cases_pc', new_df)
-    # gen_image('2020-04-12', 'cases_pc', new_df)
 
     # integrate_frame('00001', 'cases_pc')
 
 
     # TODO: log file / verbosity (print to screen too)
-    # TODO: incorporate progress bar / percent complete for long-running procedures
     # TODO: exception handling
     # TODO: comments
     # TODO: refactor methods, variables to be cleaner, better named, more flexibly executed
-    # TODO: switch to delete image files (all or specific dimension)
-
-    # TODO: migrate variables to config file
-    # TODO: organize config file sections
-    # TODO: incorporate credit for Census datasource into image display
+    # TODO: switch to delete image files (all or specific metric)
     # TODO: sanity check my calculations (daily new events per fips; colorscale ranges)
     # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate
-    # TODO: delete previous data before run?  after run?
-    # TODO: store working data in directory that's not backed up by timemachine
     # TODO: Purge unused methods
     # TODO: Identify and run various Python code quality static analyzers
-    # TODO: rename 'dimension' to 'metric'
-    # TODO: create 'data' directory and store csv's there
 
-    # TODO: merge timeline.py into this file
-    # TODO: make image / frame / video sizes all driven off same value
-    # TODO: argument for "full do-over" mode
-    # TODO: build in ability to do truncated run (either starting from x date, or between x and
-    #       y dates)
+    # TODO: incorporate credit for Census datasource into image display
+    # TODO: migrate variables to config file
+    # TODO: make image / frame / video sizes all driven off same values
+    # TODO: confirm that changing configs work: speed, metric
+    # TODO: organize config file sections
+    # TODO: delete previous data before run?  after run?
+    # TODO: store working data in directory that's not backed up by timemachine
+    # TODO: create 'data' directory and store csv's there
+    # TODO: prompt for confirmation if no data has changed and no options have been set (-y override)
+    # TODO: style progress bars https://pypi.org/project/tqdm/#parameters
+    #       https://github.com/tqdm/tqdm/issues/585
+
     # TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
     # TODO: script to temporarily utilize ec2 instance, pushing result to s3
     # TODO: prompt for confirmation whether or not to run if data hasn't changed
 
-    # TODO: variablize / configuration (blocks will be best for each dimension)
-    # ..... https://www.reddit.com/r/learnpython/comments/2hjxk5/ \
-    #       whats_the_proper_way_to_use_configparser_across/
-    # ..... https://docs.python.org/3/library/configparser.html#configparser.ExtendedInterpolation
-    # TODO: eliminate global variables
     # TODO: Configuration &/or CLI Argument options [VISUALLY MAP METHOD INTERDEPENDENCIES]
-    # * generate base image for single day *
     # * ability to keep or delete all working files *
     # * integrate frame for specific frame number *
     # * refresh source data &/or calculated data *
     # * console logging verbosity *
     # * video output file name / location *
+    # * full do-over mode *
+    # * force run flag (but otherwise prompt if no change to data) *
     # * image dimension (downstream variables!)
     # * transition timing (downstream variables! > frames)
     # * upper binendings (sp?) quantile
     # * temp storage directory for images, frames
     # * base file names / patterns (?)
-    # * force run flag (but otherwise prompt if no change to data)
+    # * clean up working files after done OR leave 
 
 
 if __name__ == '__main__':
