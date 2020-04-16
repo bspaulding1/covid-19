@@ -23,6 +23,7 @@ pylint = "*"
 rope = "*"
 pep8 = "*"
 autopep8 = "*"
+configparser = "*"
 
 [requires]
 python_version = "3.7"

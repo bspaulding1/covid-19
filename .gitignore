@@ -1,6 +1,9 @@
 .DS_Store
 .vscode/*
+
+covid_video.ini
 *.csv
+*.log
 images/*
 !images/empty
 frames/*

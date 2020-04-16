@@ -1,0 +1,31 @@
+[default]
+metrics_list = cases_pc,deaths_pc
+metric = cases_pc
+nytimes_file_name = nytimes.csv
+nytimes_csv_url = https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv
+census_file_name = census.csv
+census_csv_url = https://www2.census.gov/programs-surveys/popest/datasets/2010-2019/counties/totals/co-est2019-alldata.csv
+data_file = data.csv
+large_color = darkred
+small_color = blanchedalmond
+legend_x1 = 1684
+legend_y1 = 80
+legend_x2 = 1900
+legend_y2 = 426
+upper_end = .9
+image_width = 1920
+image_height = 1100
+crossfade = 2
+slide_time = 2
+per_capita_unit = 100000
+per_capita_string = 100K
+start_date = 2020-03-01
+output_vid_file = TBD
+
+
+[cases_pc]
+slide_title = US County COVID-19 New Cases Per Day Per ${default:per_capita_string}
+
+
+[deaths_pc]
+slide_title = US County COVID-19 Deaths Per Day Per ${default:per_capita_string}
