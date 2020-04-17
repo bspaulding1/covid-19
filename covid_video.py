@@ -374,7 +374,7 @@ def integrate_frame(dim_frame_num, tl_frame_num, metric):
 def gen_integrated_frames(metric):
     tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     images = get_images_list(metric)
-    num_frames = (len(images) - 1) * 50 + 1
+    num_frames = (len(images) - 1) * CONFIG.getint('default', 'frames_per_day') + 1
     with tqdm(total=num_frames, bar_format=tqdm_bar_format) as pbar:
         for n in range(1, num_frames + 1):
             pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
@@ -609,11 +609,7 @@ def main():
     # TODO: comments
     # TODO: Identify and run various Python code quality static analyzers
 
-    # TODO: migrate variables to config file
-    # TODO: refactor other hard-coded values into config file
-    # TODO: make image / frame / video sizes all driven off same values
     # TODO: confirm that changing configs work: speed, metric
-    # TODO: organize config file sections
 
     # TODO: store working data in directory that's not backed up by timemachine
     # TODO: prompt for confirmation if no data has changed and no options have been set (-y override)
