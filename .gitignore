@@ -10,3 +10,5 @@ frames/*
 !frames/empty
 videos/*
 !videos/empty
+data/*
+!data/empty

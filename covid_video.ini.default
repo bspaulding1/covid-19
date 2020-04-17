@@ -1,6 +1,7 @@
 [default]
 metrics_list = cases_pc,deaths_pc
 metric = cases_pc
+data_dir = data
 nytimes_file_name = nytimes.csv
 nytimes_csv_url = https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv
 census_file_name = census.csv
@@ -19,8 +20,11 @@ crossfade = 2
 slide_time = 2
 per_capita_unit = 100000
 per_capita_string = 100K
-start_date = 2020-03-01
+begin_date = 2020-03-01
 output_vid_file = TBD
+
+tqdm_bar_format = {desc:<55}  {percentage:3.0f}%|{bar:30}{r_bar}
+
 
 
 [cases_pc]

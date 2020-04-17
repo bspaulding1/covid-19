@@ -30,7 +30,6 @@ tl_hash_height = 16
 tl_side_buffer = 50
 tl_img_width = tl_width + (tl_side_buffer * 2)
 tl_img_height = tl_hash_height + (tl_side_buffer * 2)
-
 tl_mid_width = tl_img_width / 2
 tl_mid_height = tl_img_height / 4
 tl_hash_top = tl_mid_height - (tl_hash_height / 2)
@@ -49,6 +48,7 @@ def log(msg):
 
 def retrieve_file(url, file_name):
     log('retrieving ' + file_name)
+    file_name = os.path.join(CONFIG.get('default', 'data_dir'), file_name)
     tmp_file = file_name + '.tmp'
     r = requests.get(url)
     with open(tmp_file, 'wb') as f:
@@ -80,22 +80,26 @@ def gen_data():
         CONFIG.get('default', 'census_file_name'),
     )
 
-    if os.path.exists(CONFIG.get('default', 'data_file')) and nytimes_retrieve and census_retrieve:
+    data_file = os.path.join(CONFIG.get(
+        'default', 'data_dir'), CONFIG.get('default', 'data_file'))
+
+    if os.path.exists(data_file) and nytimes_retrieve and census_retrieve:
         log('data file exists and is current')
-        new_df = pd.read_csv(CONFIG.get('default', 'data_file'), dtype={'fips': str})
+        new_df = pd.read_csv(data_file, dtype={'fips': str})
         return
 
     log('creating base pandas dataframe')
-    dat_df = pd.read_csv(
-        CONFIG.get('default', 'nytimes_file_name'), dtype={'fips': str})
+    nytimes_file_name = os.path.join(CONFIG.get(
+        'default', 'data_dir'), CONFIG.get('default', 'nytimes_file_name'))
+    dat_df = pd.read_csv(nytimes_file_name, dtype={'fips': str})
 
     dates = dat_df['date'].unique().tolist()
 
     log('creating population dataframe')
-    pop_df = pd.read_csv(
-        CONFIG.get('default', 'census_file_name'), encoding='ISO-8859-1',
-        dtype={'SUBLEV': str, 'REGION': str, 'DIVISION': str, 'STATE': str, 'COUNTY': str}
-    )
+    census_file_name = os.path.join(CONFIG.get(
+        'default', 'data_dir'), CONFIG.get('default', 'census_file_name'))
+    pop_df = pd.read_csv(census_file_name, encoding='ISO-8859-1',
+        dtype={'SUBLEV': str, 'REGION': str, 'DIVISION': str, 'STATE': str, 'COUNTY': str})
 
 
     pop_df = pop_df[pop_df['COUNTY'] != '000']
@@ -140,18 +144,19 @@ def gen_data():
     new_df['deaths_pc'] = new_df['deaths_roll'] / new_df['population'] * per_capita_unit
 
     log('saving merged dataframe')
-    new_df.to_csv('data.csv', index=False)
+    new_df.to_csv(data_file, index=False)
 
     log('done processing dataframe')
 
 
-def get_df_slice(start_date=None, end_date=None):
-    df = pd.read_csv(
-        CONFIG.get('default', 'data_file'), dtype={'fips': str})
-    if start_date is None:
-        df = df[df['date'] >= CONFIG.get('default', 'start_date')]
+def get_df_slice(begin_date=None, end_date=None):
+    data_file = os.path.join(CONFIG.get(
+        'default', 'data_dir'), CONFIG.get('default', 'data_file'))
+    df = pd.read_csv(data_file, dtype={'fips': str})
+    if begin_date is None:
+        df = df[df['date'] >= CONFIG.get('default', 'begin_date')]
     else:
-        df = df[df['date'] >= start_date]
+        df = df[df['date'] >= begin_date]
     if end_date is not None:
         df = df[df['date'] <= end_date]
     return df
@@ -187,11 +192,20 @@ def gen_image(date, metric, new_df):
     ))
 
     fig.add_annotation(
+        x=0,
+        y=0,
+        showarrow=False,
+        font=dict(size=30),
+        text="Produced by Bryan Spaulding",
+        xref="paper",
+        yref="paper"
+    )
+    fig.add_annotation(
         x=1,
-        y=.07,
+        y=.09,
         showarrow=False,
         font=dict(size=20),
-        text="Produced by Bryan Spaulding",
+        text="Sources",
         xref="paper",
         yref="paper"
     )
@@ -200,7 +214,7 @@ def gen_image(date, metric, new_df):
         y=.02,
         showarrow=False,
         font=dict(size=15),
-        text="Data source: NY Times",
+        text="NY Times",
         xref="paper",
         yref="paper"
     )
@@ -213,6 +227,24 @@ def gen_image(date, metric, new_df):
         xref="paper",
         yref="paper"
     )
+    fig.add_annotation(
+        x=1,
+        y=.065,
+        showarrow=False,
+        font=dict(size=15),
+        text="Census",
+        xref="paper",
+        yref="paper"
+    )
+    fig.add_annotation(
+        x=1,
+        y=.045,
+        showarrow=False,
+        font=dict(size=15),
+        text="https://www.census.gov/",
+        xref="paper",
+        yref="paper"
+    )
 
 
 
@@ -221,8 +253,9 @@ def gen_image(date, metric, new_df):
 
 def gen_all_images(metric, df):
     """Iterate over dataframe and generate associated map images."""
+    tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     date_list = df['date'].unique().tolist()
-    with tqdm(total=len(date_list)) as pbar:
+    with tqdm(total=len(date_list), bar_format=tqdm_bar_format) as pbar:
         for date_string in date_list:
             pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
                                  'generating main map images')
@@ -258,12 +291,13 @@ def del_crossfade_frames(metric):
 
 
 def gen_all_crossfade_frames(metric):
+    tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     images_list = get_images_list(metric)
     prev_image = None
     frames_per_day = CONFIG.getint('default', 'frames_per_day')
     slide_time = CONFIG.getint('default', 'slide_time')
     total_frames = frames_per_day * (len(images_list) - 1)
-    with tqdm(total=len(images_list) - 1) as pbar:
+    with tqdm(total=len(images_list) - 1, bar_format=tqdm_bar_format) as pbar:
         for idx, image in enumerate(images_list):
             pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
                                  'generating crossfade frames')
@@ -281,19 +315,25 @@ def gen_all_crossfade_frames(metric):
     )
 
 
-def convert_frames_to_video(metric):
+def convert_frames_to_video(metric, path=None):
+    file = '%s.mp4' % metric
+    if not path:
+        file_name = os.path.join('videos', file)
+    else:
+        file_name = os.path.join(path, file)
     ff = ffmpy.FFmpeg(
         inputs={
             'frames/{metric}_tl_frame_%05d.png'.format(metric=metric):
             ['-hide_banner', '-loglevel', 'warning']
         },
         outputs={
-            'videos/%s.mp4' % metric:
+            file_name:
             ['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-y']
         }
     )
     log('Converting %s frames to video' % metric)
     ff.run()
+    log('Video complete: %s' % file_name)
 
 
 def get_images_list(metric):
@@ -332,9 +372,10 @@ def integrate_frame(dim_frame_num, tl_frame_num, metric):
 
 
 def gen_integrated_frames(metric):
+    tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     images = get_images_list(metric)
     num_frames = (len(images) - 1) * 50 + 1
-    with tqdm(total=num_frames) as pbar:
+    with tqdm(total=num_frames, bar_format=tqdm_bar_format) as pbar:
         for n in range(1, num_frames + 1):
             pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
                                  'generating integrated frames')
@@ -355,6 +396,7 @@ def delete_all_images():
 
 
 def overlay_full_legend(metric, df):
+    tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     date_df = df[df[metric] > 0]
     date_df = date_df.groupby('date')[metric].size().reset_index(name='count')
     max_df = date_df.loc[date_df['count'].idxmax()]
@@ -372,7 +414,7 @@ def overlay_full_legend(metric, df):
     selection = max_img.crop(sel_coordinates)
 
     file_list = sorted(glob.glob('images/%s_20*.png' % metric))
-    with tqdm(total=len(file_list) - 1) as pbar:
+    with tqdm(total=len(file_list) - 1, bar_format=tqdm_bar_format) as pbar:
         for idx, file in enumerate(file_list):
             if file != max_file:
                 pbar.set_description(datetime.now().strftime("%Y-%m-%d %H:%M:%S") + ' - ' +
@@ -381,15 +423,6 @@ def overlay_full_legend(metric, df):
                 this_file = Image.open(file).convert('RGBA')
                 this_file.paste(selection, sel_coordinates)
                 this_file.save(file)
-
-
-def valid_date(s):
-    try:
-        datetime.strptime(s, "%Y-%m-%d")
-        return s
-    except ValueError:
-        msg = "Not a valid date: '{0}'.".format(s)
-        raise argparse.ArgumentTypeError(msg)
 
 
 def gen_date_list(beg, end):
@@ -438,11 +471,12 @@ def gen_timeline_frame(date_string, idx, tot_frames):
 
 
 def gen_timeline_frames(df):
+    tqdm_bar_format = CONFIG.get('default', 'tqdm_bar_format')
     interval = CONFIG.getint('default', 'frames_per_day')
     date_list = df['date'].unique().tolist()
     gen_base_timeline_image(date_list)
     tot_frames = (len(date_list) - 1) * interval
-    with tqdm(total=tot_frames) as pbar:
+    with tqdm(total=tot_frames, bar_format=tqdm_bar_format) as pbar:
         for idx, date_string in enumerate(date_list):
             if idx == len(date_list) - 1:
                 gen_timeline_frame(date_string, tot_frames, tot_frames)
@@ -459,6 +493,7 @@ def gen_base_timeline_image(date_list):
 
     num_hashes = len(date_list)
     hash_space = tl_width / (num_hashes - 1)
+
 
     f = ImageFont.truetype(font='Courier', size=vert_font_size, index=0, encoding='')
     img_txt = Image.new('L', (tl_img_height, tl_img_width))
@@ -481,8 +516,28 @@ def gen_base_timeline_image(date_list):
 
     img.paste(ImageOps.colorize(w, (0, 0, 0), (0, 0, 0)), (0, 0),  w)
 
-    img.save('images/timeline_base.png')
+    img.save(tl_base_file)
 
+
+def valid_date(s):
+    try:
+        datetime.strptime(s, "%Y-%m-%d")
+        return s
+    except ValueError:
+        msg = "Not a valid date: '{0}'.".format(s)
+        raise argparse.ArgumentTypeError(msg)
+
+
+def valid_path(val):
+    if os.path.isdir(val):
+        return val
+    else:
+        msg = "Not a valid path: '{0}'.".format(val)
+        raise argparse.ArgumentTypeError(msg)
+
+
+def confirm_prompt(msg):
+    pass
 
 
 def main():
@@ -491,9 +546,9 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='Script for processing COVID-19 data and creating video')
-    parser.add_argument('--delete-all-frames', action="store_true", default=False,
+    parser.add_argument('--del-frames', action="store_true", default=False,
                         dest='delete_all_frames', help='delete all frame files')
-    parser.add_argument('--delete-all-images', action="store_true", default=False,
+    parser.add_argument('--del-images', action="store_true", default=False,
                         dest='delete_all_images', help='delete all image files')
     parser.add_argument('-b', default=None, dest='begin_date', type=valid_date,
                         help='start date of date range - format YYYY-MM-DD')
@@ -503,12 +558,13 @@ def main():
                         help='create image for specific date - format YYYY-MM-DD')
     parser.add_argument('-m', default=None, dest='metric', choices=metrics_list,
                         help='specify which metric (default: cases_pc)')
+    parser.add_argument('-o', default=None, dest='output_path', type=valid_path,
+                        help='path to save output file')
     args = parser.parse_args()
     # -f for frame
     # -d for deleting of some ilk
     # -y for auto-confirming
     # -r refresh data calculations
-    # -o output file path + name
     # -l leave working files in place
 
     quick_exit = False
@@ -529,59 +585,57 @@ def main():
 
     if args.specific_date:
         gen_data()
-        vid_df = get_df_slice(start_date=args.start_date, end_date=args.end_date)
+        vid_df = get_df_slice(begin_date=args.begin_date,
+                              end_date=args.end_date)
         gen_image(args.specific_date, metric, vid_df)
 
     if not quick_exit:
         gen_data()
-        vid_df = get_df_slice(start_date=args.start_date, end_date=args.end_date)
+        vid_df = get_df_slice(begin_date=args.begin_date,
+                              end_date=args.end_date)
         gen_timeline_frames(vid_df)
         gen_all_images(metric, vid_df)
         gen_all_crossfade_frames(metric)
         gen_integrated_frames(metric)
-        convert_frames_to_video(metric)
+        convert_frames_to_video(metric, path=args.output_path)
 
     # integrate_frame('00001', 'cases_pc')
 
-
-    # TODO: log file / verbosity (print to screen too)
-    # TODO: exception handling
-    # TODO: comments
-    # TODO: refactor methods, variables to be cleaner, better named, more flexibly executed
-    # TODO: switch to delete image files (all or specific metric)
     # TODO: sanity check my calculations (daily new events per fips; colorscale ranges)
     # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate
+    # TODO: refactor methods, variables to be cleaner, better named, more flexibly executed
     # TODO: Purge unused methods
+    # TODO: exception handling
+    # TODO: comments
     # TODO: Identify and run various Python code quality static analyzers
 
-    # TODO: incorporate credit for Census datasource into image display
     # TODO: migrate variables to config file
+    # TODO: refactor other hard-coded values into config file
     # TODO: make image / frame / video sizes all driven off same values
     # TODO: confirm that changing configs work: speed, metric
     # TODO: organize config file sections
-    # TODO: delete previous data before run?  after run?
-    # TODO: store working data in directory that's not backed up by timemachine
-    # TODO: create 'data' directory and store csv's there
-    # TODO: prompt for confirmation if no data has changed and no options have been set (-y override)
-    # TODO: style progress bars https://pypi.org/project/tqdm/#parameters
-    #       https://github.com/tqdm/tqdm/issues/585
 
+    # TODO: store working data in directory that's not backed up by timemachine
+    # TODO: prompt for confirmation if no data has changed and no options have been set (-y override)
+    # TODO: change output path to filepath, allowing for specifying file name (checks for path exists and mp4 extension)
+
+    ### LONG TERM ###
     # TODO: idea: create multi-paned view of COVID stats running on simultaneous timelines
-    # TODO: script to temporarily utilize ec2 instance, pushing result to s3
     # TODO: prompt for confirmation whether or not to run if data hasn't changed
 
     # TODO: Configuration &/or CLI Argument options [VISUALLY MAP METHOD INTERDEPENDENCIES]
+    ### ARGUMENTS ###
     # * ability to keep or delete all working files *
-    # * integrate frame for specific frame number *
+    # * integrate frame for specific frame number * (error handling)
     # * refresh source data &/or calculated data *
     # * console logging verbosity *
-    # * video output file name / location *
-    # * full do-over mode *
     # * force run flag (but otherwise prompt if no change to data) *
+
+    ### CONFIGURATION ###
     # * image dimension (downstream variables!)
     # * transition timing (downstream variables! > frames)
     # * upper binendings (sp?) quantile
-    # * temp storage directory for images, frames
+    # * temp storage directory for images, frames (automatically create subdir)
     # * base file names / patterns (?)
     # * clean up working files after done OR leave 
 
