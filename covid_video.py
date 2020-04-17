@@ -561,8 +561,8 @@ def main():
     parser.add_argument('-o', default=None, dest='output_path', type=valid_path,
                         help='path to save output file')
     args = parser.parse_args()
-    # -f for frame
     # -d for deleting of some ilk
+    # -w leave working files
     # -y for auto-confirming
     # -r refresh data calculations
     # -l leave working files in place
@@ -599,7 +599,6 @@ def main():
         gen_integrated_frames(metric)
         convert_frames_to_video(metric, path=args.output_path)
 
-    # integrate_frame('00001', 'cases_pc')
 
     # TODO: sanity check my calculations (daily new events per fips; colorscale ranges)
     # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate
@@ -621,11 +620,11 @@ def main():
 
     # TODO: Configuration &/or CLI Argument options [VISUALLY MAP METHOD INTERDEPENDENCIES]
     ### ARGUMENTS ###
-    # * ability to keep or delete all working files *
+    # * ability to keep or delete all working files
+    # * refresh source data &/or calculated data
+    # * console logging verbosity
+    # * force run flag (but otherwise prompt if no change to data)
     # * integrate frame for specific frame number * (error handling)
-    # * refresh source data &/or calculated data *
-    # * console logging verbosity *
-    # * force run flag (but otherwise prompt if no change to data) *
 
     ### CONFIGURATION ###
     # * image dimension (downstream variables!)
