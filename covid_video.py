@@ -171,7 +171,9 @@ def gen_image(date, metric, new_df):
 
     max_range = new_df[metric][new_df[metric] > 0].quantile(
         float(CONFIG.get('default', 'upper_end')))
-    endpts = list(np.linspace(0.01, max_range, len(colorscale) - 1))
+    endpts = list(np.linspace(1, max_range, len(colorscale) - 1))
+
+    endpts = [int(round(i, 0)) for i in endpts]
 
     fig = ff.create_choropleth(
         fips=fips, values=values,
@@ -540,6 +542,11 @@ def confirm_prompt(msg):
     pass
 
 
+def calc_max_county_day(metric, df):
+    max_df = df.groupby(['fips'])[metric].max()
+    print(max_df)
+
+
 def main():
 
     metrics_list = CONFIG.get('default', 'metrics_list').split(',')
@@ -593,6 +600,10 @@ def main():
         gen_data()
         vid_df = get_df_slice(begin_date=args.begin_date,
                               end_date=args.end_date)
+        
+        # calc_max_county_day(metric, vid_df)
+        # sys.exit(0)
+
         gen_timeline_frames(vid_df)
         gen_all_images(metric, vid_df)
         gen_all_crossfade_frames(metric)
@@ -600,6 +611,7 @@ def main():
         convert_frames_to_video(metric, path=args.output_path)
 
 
+    # TODO: check if data.csv is newer than ny or census files
     # TODO: sanity check my calculations (daily new events per fips; colorscale ranges)
     # TODO: possible bug in deaths vs. deaths_pc video. seemed to concatenate
     # TODO: refactor methods, variables to be cleaner, better named, more flexibly executed
