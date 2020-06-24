@@ -70,6 +70,8 @@ def retrieve_file(url, file_name):
 def gen_data():
     """Retrieve data from datasources and merge into dataframe."""
 
+    rolling_days = CONFIG.getint('default', 'rolling_days')
+
     nytimes_retrieve = retrieve_file(
         CONFIG.get('default', 'nytimes_csv_url'),
         CONFIG.get('default', 'nytimes_file_name'),
@@ -134,9 +136,9 @@ def gen_data():
     new_df['cases_new'] = new_df['cases_new'].apply(lambda x: 0 if x < 0 else x)
     new_df['deaths_new'] = new_df['deaths_new'].apply(lambda x: 0 if x < 0 else x)
 
-    new_df['cases_roll'] = new_df.groupby('fips')['cases_new'].rolling(3).mean() \
+    new_df['cases_roll'] = new_df.groupby('fips')['cases_new'].rolling(rolling_days).mean() \
                                  .reset_index(0, drop=True).fillna(0)
-    new_df['deaths_roll'] = new_df.groupby('fips')['deaths_new'].rolling(3).mean() \
+    new_df['deaths_roll'] = new_df.groupby('fips')['deaths_new'].rolling(rolling_days).mean() \
                                   .reset_index(0, drop=True).fillna(0)
 
     per_capita_unit = int(CONFIG.get('default', 'per_capita_unit'))
