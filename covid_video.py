@@ -282,7 +282,7 @@ def gen_crossfade_frames(file_1, file_2, metric, start_num, time):
              '[1:v][0:v]blend=all_expr=\'A*(if(gte(T,{crossfade}),1,T/{crossfade}))' \
              '+B*(1-(if(gte(T,{crossfade}),1,T/{crossfade})))\''.format(
                  crossfade=CONFIG.get('default', 'crossfade')),
-             '-t', str(time)]
+             '-t', time]
         }
     )
     ff.run()
@@ -299,7 +299,9 @@ def gen_all_crossfade_frames(metric):
     images_list = get_images_list(metric)
     prev_image = None
     frames_per_day = CONFIG.getint('default', 'frames_per_day')
-    slide_time = CONFIG.getint('default', 'slide_time')
+    slide_time = CONFIG.get('default', 'slide_time')
+    # TODO: potentially more future-proof way of handling conversion to seconds + decimal
+    slide_time = '00:00:0' + slide_time
     total_frames = frames_per_day * (len(images_list) - 1)
     with tqdm(total=len(images_list) - 1, bar_format=tqdm_bar_format) as pbar:
         for idx, image in enumerate(images_list):
