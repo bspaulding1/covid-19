@@ -1,6 +1,8 @@
 .DS_Store
 .vscode/*
 
+__pycache__/*
+
 covid_video.ini
 *.csv
 *.log
