@@ -18,4 +18,3 @@ def create_config(config_file=None):
 
 
 CONFIG = create_config()
-
